@@ -1,59 +1,35 @@
 import express from 'express'
-import { createUser, deleteUserById, listUsers, updateUserById } from '../services/user.service.js'
+import { deleteUserById, listUsers, updateUserById } from '../services/user.service.js'
+import { authenticate, ensureOwnUser } from '../middlewares/auth.middleware.js'
+import { logAction } from '../middlewares/log.middleware.js'
 
 export const userRouter = express.Router()
 
+// Todas as rotas de /users exigem usuário logado.
+// O cadastro de novos usuários fica em POST /auth/register.
+userRouter.use(authenticate)
+
+// Os erros lançados aqui (ou nos services) vão para o errorHandler (middlewares/error.middleware.js)
+
 userRouter.get('/', async (req, res) => {
-    try {
-        const users = await listUsers()
-        return res.json(users)
-    } catch (error) {
-        return res.status(400).json({
-            error: error.message
-        })   
-    }
+    const users = await listUsers()
+
+    return res.json(users)
 })
 
-userRouter.post('/', async (req, res) => {
-    try {
-        const payload = req.body;
-    
-        const user = await createUser(payload);
-    
-        return res.json(user)
-    } catch (error) {
-        return res.status(400).json({
-            error: error.message
-        })
-    }
+userRouter.put("/:id", ensureOwnUser, logAction('user.update', 'users'), async (req, res) => {
+    const { id } = req.params
+    const payload = req.body
+
+    const user = await updateUserById(id, payload)
+
+    return res.json(user)
 })
 
+userRouter.delete("/:id", ensureOwnUser, logAction('user.delete', 'users'), async (req, res) => {
+    const { id } = req.params
 
-userRouter.delete("/:id", async (req, res) => {
-    try {
-        const { id } = req.params
+    const user = await deleteUserById(id)
 
-        const user = await deleteUserById(id)
-
-        return res.json(user)
-    } catch (error) {
-        return res.status(400).json({
-            error: error.message
-        })
-    }
-})
-
-userRouter.put("/:id", async (req, res) => {
-    try {
-        const { id } = req.params
-        const payload = req.body
-
-        const user = await updateUserById(id, payload)
-
-        return res.json(user)
-    } catch (error) {
-        return res.status(400).json({
-            error: error.message
-        })
-    }
+    return res.json(user)
 })
